@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "skipLibCheck": true,
+    "lib": ["ES2020", "DOM", "WebWorker"],
+    "types": ["vite/client"]
+  },
+  "include": [
+    "src/**/*",
+    "vector-enc/index.ts",
+    "vector-enc/enc/**/*",
+    "vector-enc/hydroField/**/*",
+    "WaterLayer/**/*"
+  ]
+}

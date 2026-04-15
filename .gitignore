@@ -1,0 +1,47 @@
+node_modules/
+dist/
+.venv/
+__pycache__/
+*.pyc
+
+# Python cache / tooling
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local environment files
+.env
+.env.local
+.env.*.local
+
+# IDE / OS files
+.vscode/
+.idea/
+.DS_Store
+.cursor/
+Thumbs.db
+
+# Runtime artifacts
+*.log
+*.sqlite
+*.sqlite3
+*.db
+*.pid
+
+# Local database
+apps/api/maritime.db
+
+# Frontend build artifacts
+apps/web/dist/
+apps/web/.vite/
+
+# Python virtual envs (nested)
+**/.venv/
+
+# Local storage (raw inputs + derived outputs)
+storage/raw/*
+storage/derived/*
+!storage/raw/.gitkeep
+!storage/derived/.gitkeep

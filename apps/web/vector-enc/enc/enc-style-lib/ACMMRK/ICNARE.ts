@@ -1,0 +1,101 @@
+import { SymbolLayerSpecification } from 'mapbox-gl'
+import { SOURCE_DESC } from './_source'
+
+const ACMMRK_ICNARE_SYMBOL_0: SymbolLayerSpecification = {
+	id: 'ACMMRK_ICNARE_SYMBOL_0',
+	type: 'symbol',
+	...SOURCE_DESC,
+	filter: ['==', ['get', 'OBJL'], 67],
+	layout: {
+		'icon-allow-overlap': true,
+		'icon-image': 'INFARE51',
+		'icon-offset': [-10, -12],
+	},
+	paint: {},
+}
+
+const ACMMRK_ICNARE_SYMBOL_1: SymbolLayerSpecification = {
+	id: 'ACMMRK_ICNARE_SYMBOL_1',
+	type: 'symbol',
+	...SOURCE_DESC,
+	filter: [
+		'all',
+		['==', ['get', 'OBJL'], 67],
+		[
+			'match',
+			['get', 'MarkerName2'],
+			[
+				'ENTRES61',
+				'ENTRES71',
+				'ENTRES51',
+				'ACHRES61',
+				'ACHRES71',
+				'ACHRES51',
+				'FSHRES71',
+				'FSHRES51',
+				'INFARE51',
+				'RSRDEF51',
+			],
+			true,
+			false,
+		],
+	],
+	layout: {
+		'icon-allow-overlap': true,
+		'icon-image': [
+			'case',
+			['==', ['get', 'MarkerName2'], 'ENTRES61'],
+			'ENTRES61',
+			['==', ['get', 'MarkerName2'], 'ENTRES71'],
+			'ENTRES71',
+			['==', ['get', 'MarkerName2'], 'ENTRES51'],
+			'ENTRES51',
+			['==', ['get', 'MarkerName2'], 'ACHRES61'],
+			'ACHRES61',
+			['==', ['get', 'MarkerName2'], 'ACHRES71'],
+			'ACHRES71',
+			['==', ['get', 'MarkerName2'], 'ACHRES51'],
+			'ACHRES51',
+			['==', ['get', 'MarkerName2'], 'FSHRES71'],
+			'FSHRES71',
+			['==', ['get', 'MarkerName2'], 'FSHRES51'],
+			'FSHRES51',
+			['==', ['get', 'MarkerName2'], 'INFARE51'],
+			'INFARE51',
+			['==', ['get', 'MarkerName2'], 'RSRDEF51'],
+			'RSRDEF51',
+			'ENTRES61',
+		],
+		'icon-offset': [
+			'case',
+			['==', ['get', 'MarkerName2'], 'ENTRES61'],
+			[-35, 30],
+			['==', ['get', 'MarkerName2'], 'ENTRES71'],
+			[-36, 29],
+			['==', ['get', 'MarkerName2'], 'ENTRES51'],
+			[-29, 29],
+			['==', ['get', 'MarkerName2'], 'ACHRES61'],
+			[-42, 38],
+			['==', ['get', 'MarkerName2'], 'ACHRES71'],
+			[-43, 38],
+			['==', ['get', 'MarkerName2'], 'ACHRES51'],
+			[-36, 38],
+			['==', ['get', 'MarkerName2'], 'FSHRES71'],
+			[-38, 19],
+			['==', ['get', 'MarkerName2'], 'FSHRES51'],
+			[-30, 19],
+			['==', ['get', 'MarkerName2'], 'INFARE51'],
+			[-24, 24],
+			['==', ['get', 'MarkerName2'], 'RSRDEF51'],
+			[-29, 29],
+			[0, 0],
+		],
+	},
+	paint: {},
+}
+
+const symbols: SymbolLayerSpecification[] = [ACMMRK_ICNARE_SYMBOL_0, ACMMRK_ICNARE_SYMBOL_1]
+
+export default {
+	symbols,
+}
