@@ -1,5 +1,16 @@
+import {
+  ArrowUpRight,
+  FolderOpen,
+  HardDriveUpload,
+  Layers3,
+  RefreshCw,
+  ShipWheel,
+  Waves,
+  Mountain,
+  Wind
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { InputHTMLAttributes } from "react";
+import type { InputHTMLAttributes, ReactNode } from "react";
 import {
   fetchAssets,
   fetchDynamicInputFiles,
@@ -360,41 +371,65 @@ export function DataManagementPage() {
 
   return (
     <div className="page">
-      <div className="panel">
-        <div className="data-tabs-header">
-          <div className="page-tabs">
-            <button className={activeTab === "enc" ? "active" : ""} onClick={() => setActiveTab("enc")}>
-              海图
-            </button>
-            <button className={activeTab === "hydro" ? "active" : ""} onClick={() => setActiveTab("hydro")}>
-              水文场
-            </button>
-            <button className={activeTab === "terrain" ? "active" : ""} onClick={() => setActiveTab("terrain")}>
-              地形
-            </button>
-            <button className={activeTab === "dynamic" ? "active" : ""} onClick={() => setActiveTab("dynamic")}>
-              水动力场
-            </button>
-            <button className={activeTab === "visual" ? "active" : ""} onClick={() => setActiveTab("visual")}>
-              其他可视化资源
-            </button>
+      <div className="panel page-hero">
+        <div className="page-hero-main">
+          <div>
+            <div className="page-eyebrow">Data Workspace</div>
+            <div className="page-title-row">
+              <h1 className="page-title">数据管理</h1>
+            </div>
+            <p className="page-description">可视化资源上传、处理与发布</p>
           </div>
+        </div>
+        <div className="page-hero-actions">
           <button
-            className="icon-refresh-btn"
+            className="secondary-btn icon-btn"
             onClick={() => void reloadAll()}
             disabled={loading}
             title="刷新当前数据"
             aria-label="刷新当前数据"
           >
-            {loading ? "…" : "↻"}
+            <RefreshCw size={16} className={loading ? "spin" : ""} />
+            <span>刷新</span>
           </button>
+        </div>
+      </div>
+
+      <div className="panel">
+        <div className="data-tabs-header">
+          <div className="page-tabs">
+            <button className={activeTab === "enc" ? "active" : ""} onClick={() => setActiveTab("enc")}>
+              <ShipWheel size={15} />
+              <span>海图</span>
+            </button>
+            <button className={activeTab === "hydro" ? "active" : ""} onClick={() => setActiveTab("hydro")}>
+              <Waves size={15} />
+              <span>水文场</span>
+            </button>
+            <button className={activeTab === "terrain" ? "active" : ""} onClick={() => setActiveTab("terrain")}>
+              <Mountain size={15} />
+              <span>地形</span>
+            </button>
+            <button className={activeTab === "dynamic" ? "active" : ""} onClick={() => setActiveTab("dynamic")}>
+              <Wind size={15} />
+              <span>水动力场</span>
+            </button>
+            <button className={activeTab === "visual" ? "active" : ""} onClick={() => setActiveTab("visual")}>
+              <Layers3 size={15} />
+              <span>其他可视化资源</span>
+            </button>
+          </div>
+          <div className="section-meta">共 {assets.length} 个已发布资产</div>
         </div>
       </div>
 
       {activeTab === "enc" ? (
         <>
-          <div className="panel">
-            <div className="panel-title">ENC S-57 .000 文件上传</div>
+          <SectionPanel
+            title="ENC S-57 .000 文件上传"
+            description="上传原始海图数据，作为后续瓦片构建的输入源。"
+            accent="blue"
+          >
             <div className="inline-form">
               <input
                 type="file"
@@ -402,122 +437,72 @@ export function DataManagementPage() {
                 multiple
                 onChange={(e) => setPendingFiles(Array.from(e.target.files ?? []))}
               />
-              <button onClick={() => void onUploadCharts()}>上传海图文件</button>
+              <button className="primary-btn" onClick={() => void onUploadCharts()}>
+                <HardDriveUpload size={16} />
+                <span>上传海图文件</span>
+              </button>
             </div>
-          </div>
-          <div className="panel">
-            <div className="panel-title">ENC 瓦片构建</div>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>选择</th>
-                    <th>ID</th>
-                    <th>文件名</th>
-                    <th>存储路径</th>
-                    <th>上传时间</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {charts.map((row) => (
-                    <tr key={row.id}>
-                      <td>
-                        <input
-                          type="checkbox"
-                          checked={selectedChartIds.includes(row.id)}
-                          onChange={() => toggleChartSelection(row.id)}
-                        />
-                      </td>
-                      <td>{row.id}</td>
-                      <td>{row.original_name}</td>
-                      <td title={row.stored_path}>{row.stored_path}</td>
-                      <td>{row.created_at}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          </SectionPanel>
+          <SectionPanel
+            title="ENC 瓦片构建"
+            description="选择海图文件，填写数据集标识并触发构建。"
+            accent="blue"
+          >
+            <DataTable
+              columns={["选择", "ID", "文件名", "存储路径", "上传时间"]}
+              emptyText="暂无海图文件，请先上传。"
+              rows={charts.map((row) => (
+                <tr key={row.id}>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={selectedChartIds.includes(row.id)}
+                      onChange={() => toggleChartSelection(row.id)}
+                    />
+                  </td>
+                  <td>{row.id}</td>
+                  <td>{row.original_name}</td>
+                  <td title={row.stored_path} className="cell-muted">{row.stored_path}</td>
+                  <td>{row.created_at}</td>
+                </tr>
+              ))}
+            />
             <div className="inline-form">
               <label>
                 Dataset ID
                 <input value={datasetId} onChange={(e) => setDatasetId(e.target.value)} required />
               </label>
-              <button onClick={() => void onTriggerBuild()}>构建矢量瓦片</button>
+              <button className="primary-btn" onClick={() => void onTriggerBuild()}>
+                <Layers3 size={16} />
+                <span>构建矢量瓦片</span>
+              </button>
             </div>
-          </div>
-          <div className="panel">
-            <div className="panel-title">任务状态</div>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Job ID</th>
-                    <th>Dataset</th>
-                    <th>状态</th>
-                    <th>消息</th>
-                    <th>merged.mbtiles</th>
-                    <th>更新时间</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {jobs.map((row) => (
-                    <tr key={row.id}>
-                      <td>{row.id}</td>
-                      <td>{row.dataset_id}</td>
-                      <td>{row.status}</td>
-                      <td title={row.message}>{row.message}</td>
-                      <td title={row.merged_mbtiles_path ?? ""}>{row.merged_mbtiles_path ?? "-"}</td>
-                      <td>{row.updated_at}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-          <div className="panel">
-            <div className="panel-title">已发布数据（ENC）</div>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Dataset</th>
-                    <th>Kind</th>
-                    <th>Path</th>
-                    <th>URL</th>
-                    <th>Created At</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {encAssets.map((row) => (
-                    <tr key={row.id}>
-                      <td>{row.id}</td>
-                      <td>{row.dataset_id}</td>
-                      <td>{row.asset_kind}</td>
-                      <td title={row.disk_path}>{row.disk_path}</td>
-                      <td title={row.access_url ?? ""}>
-                        {row.access_url ? (
-                          <a href={row.access_url} target="_blank" rel="noreferrer">
-                            {row.access_url}
-                          </a>
-                        ) : (
-                          "-"
-                        )}
-                      </td>
-                      <td>{row.created_at}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          </SectionPanel>
+          <SectionPanel title="任务状态" description="实时查看构建进度、产出路径和错误消息。">
+            <DataTable
+              columns={["Job ID", "Dataset", "状态", "消息", "merged.mbtiles", "更新时间"]}
+              emptyText="暂无任务记录。"
+              rows={jobs.map((row) => (
+                <tr key={row.id}>
+                  <td>{row.id}</td>
+                  <td>{row.dataset_id}</td>
+                  <td><StatusBadge tone={statusTone(row.status)}>{row.status}</StatusBadge></td>
+                  <td title={row.message} className="cell-muted">{row.message}</td>
+                  <td title={row.merged_mbtiles_path ?? ""} className="cell-muted">{row.merged_mbtiles_path ?? "-"}</td>
+                  <td>{row.updated_at}</td>
+                </tr>
+              ))}
+            />
+          </SectionPanel>
+          <SectionPanel title="已发布数据（ENC）" description="发布后的数据资产，保持原有字段与访问链接。">
+            <AssetTable rows={encAssets} />
+          </SectionPanel>
         </>
       ) : null}
 
       {activeTab === "hydro" ? (
         <>
-          <div className="panel">
-            <div className="panel-title">Hydro 原文件上传（GRIB / GeoJSON）</div>
+          <SectionPanel title="Hydro 原文件上传（GRIB / GeoJSON）" description="管理原始水文输入文件。">
             <div className="inline-form">
               <label>
                 输入格式
@@ -534,11 +519,13 @@ export function DataManagementPage() {
                 accept={hydroInputFormat === "grib" ? ".grib,.grb" : ".geojson,.json"}
                 onChange={(e) => setPendingHydroFile(e.target.files?.[0] ?? null)}
               />
-              <button onClick={() => void onUploadHydroInput()}>上传 Hydro 输入文件</button>
+              <button className="primary-btn" onClick={() => void onUploadHydroInput()}>
+                <HardDriveUpload size={16} />
+                <span>上传 Hydro 输入文件</span>
+              </button>
             </div>
-          </div>
-          <div className="panel">
-            <div className="panel-title">Hydro 瓦片构建</div>
+          </SectionPanel>
+          <SectionPanel title="Hydro 瓦片构建" description="通过变量、bbox 和格式选项控制构建过程。">
             <div className="inline-form">
               <label>
                 Dataset ID
@@ -586,120 +573,60 @@ export function DataManagementPage() {
                   <input value={cfgribFilterText} onChange={(e) => setCfgribFilterText(e.target.value)} />
                 </label>
               ) : null}
-              <button onClick={() => void onTriggerHydroBuild()}>构建水文场瓦片</button>
+              <button className="primary-btn" onClick={() => void onTriggerHydroBuild()}>
+                <Layers3 size={16} />
+                <span>构建水文场瓦片</span>
+              </button>
             </div>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>选择</th>
-                    <th>ID</th>
-                    <th>文件名</th>
-                    <th>格式</th>
-                    <th>路径</th>
-                    <th>上传时间</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {hydroFiles.map((row) => (
-                    <tr key={row.id}>
-                      <td>
-                        <input
-                          type="checkbox"
-                          checked={selectedHydroFileIds.includes(row.id)}
-                          onChange={() => toggleHydroSelection(row.id)}
-                        />
-                      </td>
-                      <td>{row.id}</td>
-                      <td>{row.original_name}</td>
-                      <td>{row.input_format}</td>
-                      <td title={row.stored_path}>{row.stored_path}</td>
-                      <td>{row.created_at}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-          <div className="panel">
-            <div className="panel-title">任务状态</div>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Job ID</th>
-                    <th>Dataset</th>
-                    <th>格式</th>
-                    <th>场类型</th>
-                    <th>变量</th>
-                    <th>状态</th>
-                    <th>消息</th>
-                    <th>tiles_dir</th>
-                    <th>更新时间</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {hydroJobs.map((row) => (
-                    <tr key={row.id}>
-                      <td>{row.id}</td>
-                      <td>{row.dataset_id}</td>
-                      <td>{row.input_format}</td>
-                      <td>{row.field_kind}</td>
-                      <td>{row.variables.join(",")}</td>
-                      <td>{row.status}</td>
-                      <td title={row.message}>{row.message}</td>
-                      <td title={row.tiles_dir ?? ""}>{row.tiles_dir ?? "-"}</td>
-                      <td>{row.updated_at}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-          <div className="panel">
-            <div className="panel-title">已发布数据（Hydro）</div>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Dataset</th>
-                    <th>Kind</th>
-                    <th>Path</th>
-                    <th>URL</th>
-                    <th>Created At</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {hydroAssets.map((row) => (
-                    <tr key={row.id}>
-                      <td>{row.id}</td>
-                      <td>{row.dataset_id}</td>
-                      <td>{row.asset_kind}</td>
-                      <td title={row.disk_path}>{row.disk_path}</td>
-                      <td title={row.access_url ?? ""}>
-                        {row.access_url ? (
-                          <a href={row.access_url} target="_blank" rel="noreferrer">
-                            {row.access_url}
-                          </a>
-                        ) : (
-                          "-"
-                        )}
-                      </td>
-                      <td>{row.created_at}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+            <DataTable
+              columns={["选择", "ID", "文件名", "格式", "路径", "上传时间"]}
+              emptyText="暂无 Hydro 输入文件。"
+              rows={hydroFiles.map((row) => (
+                <tr key={row.id}>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={selectedHydroFileIds.includes(row.id)}
+                      onChange={() => toggleHydroSelection(row.id)}
+                    />
+                  </td>
+                  <td>{row.id}</td>
+                  <td>{row.original_name}</td>
+                  <td><StatusBadge tone="neutral">{row.input_format}</StatusBadge></td>
+                  <td title={row.stored_path} className="cell-muted">{row.stored_path}</td>
+                  <td>{row.created_at}</td>
+                </tr>
+              ))}
+            />
+          </SectionPanel>
+          <SectionPanel title="任务状态" description="查看水文场任务状态、输出目录和构建消息。">
+            <DataTable
+              columns={["Job ID", "Dataset", "格式", "场类型", "变量", "状态", "消息", "tiles_dir", "更新时间"]}
+              emptyText="暂无 Hydro 任务。"
+              rows={hydroJobs.map((row) => (
+                <tr key={row.id}>
+                  <td>{row.id}</td>
+                  <td>{row.dataset_id}</td>
+                  <td>{row.input_format}</td>
+                  <td>{row.field_kind}</td>
+                  <td>{row.variables.join(",")}</td>
+                  <td><StatusBadge tone={statusTone(row.status)}>{row.status}</StatusBadge></td>
+                  <td title={row.message} className="cell-muted">{row.message}</td>
+                  <td title={row.tiles_dir ?? ""} className="cell-muted">{row.tiles_dir ?? "-"}</td>
+                  <td>{row.updated_at}</td>
+                </tr>
+              ))}
+            />
+          </SectionPanel>
+          <SectionPanel title="已发布数据（Hydro）" description="发布后的标量或矢量水文资产。">
+            <AssetTable rows={hydroAssets} />
+          </SectionPanel>
         </>
       ) : null}
 
       {activeTab === "terrain" ? (
         <>
-          <div className="panel">
-            <div className="panel-title">Terrain 输入上传（GeoTIFF / GeoJSON）</div>
+          <SectionPanel title="Terrain 输入上传（GeoTIFF / GeoJSON）" description="为地形瓦片构建准备 DEM 或边界数据。">
             <div className="inline-form">
               <label>
                 输入格式
@@ -731,37 +658,27 @@ export function DataManagementPage() {
                 accept={terrainInputFormat === "geotiff" ? ".tif,.tiff" : ".geojson,.json"}
                 onChange={(e) => setPendingTerrainFile(e.target.files?.[0] ?? null)}
               />
-              <button onClick={() => void onUploadTerrainInput()}>上传 Terrain 输入文件</button>
+              <button className="primary-btn" onClick={() => void onUploadTerrainInput()}>
+                <HardDriveUpload size={16} />
+                <span>上传 Terrain 输入文件</span>
+              </button>
             </div>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>文件名</th>
-                    <th>格式</th>
-                    <th>角色</th>
-                    <th>路径</th>
-                    <th>上传时间</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {terrainFiles.map((row) => (
-                    <tr key={row.id}>
-                      <td>{row.id}</td>
-                      <td>{row.original_name}</td>
-                      <td>{row.input_format}</td>
-                      <td>{row.file_role}</td>
-                      <td title={row.stored_path}>{row.stored_path}</td>
-                      <td>{row.created_at}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-          <div className="panel">
-            <div className="panel-title">Terrain 构建（Terrain-RGB PNG）</div>
+            <DataTable
+              columns={["ID", "文件名", "格式", "角色", "路径", "上传时间"]}
+              emptyText="暂无 Terrain 输入文件。"
+              rows={terrainFiles.map((row) => (
+                <tr key={row.id}>
+                  <td>{row.id}</td>
+                  <td>{row.original_name}</td>
+                  <td><StatusBadge tone="neutral">{row.input_format}</StatusBadge></td>
+                  <td><StatusBadge tone="neutral">{row.file_role}</StatusBadge></td>
+                  <td title={row.stored_path} className="cell-muted">{row.stored_path}</td>
+                  <td>{row.created_at}</td>
+                </tr>
+              ))}
+            />
+          </SectionPanel>
+          <SectionPanel title="Terrain 构建（Terrain-RGB PNG）" description="保留原有参数配置，优化布局与交互状态。">
             <div className="inline-form">
               <label>
                 Dataset ID
@@ -821,88 +738,40 @@ export function DataManagementPage() {
                   </label>
                 </>
               ) : null}
-              <button onClick={() => void onTriggerTerrainBuild()}>构建 Terrain</button>
+              <button className="primary-btn" onClick={() => void onTriggerTerrainBuild()}>
+                <Layers3 size={16} />
+                <span>构建 Terrain</span>
+              </button>
             </div>
-          </div>
-          <div className="panel">
-            <div className="panel-title">Terrain 任务状态</div>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Job ID</th>
-                    <th>Dataset</th>
-                    <th>格式</th>
-                    <th>DEM ID</th>
-                    <th>Boundary ID</th>
-                    <th>状态</th>
-                    <th>消息</th>
-                    <th>tiles_dir</th>
-                    <th>更新时间</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {terrainJobs.map((row) => (
-                    <tr key={row.id}>
-                      <td>{row.id}</td>
-                      <td>{row.dataset_id}</td>
-                      <td>{row.input_format}</td>
-                      <td>{row.dem_file_id}</td>
-                      <td>{row.boundary_file_id ?? "-"}</td>
-                      <td>{row.status}</td>
-                      <td title={row.message}>{row.message}</td>
-                      <td title={row.tiles_dir ?? ""}>{row.tiles_dir ?? "-"}</td>
-                      <td>{row.updated_at}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-          <div className="panel">
-            <div className="panel-title">已发布数据（Terrain）</div>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Dataset</th>
-                    <th>Kind</th>
-                    <th>Path</th>
-                    <th>URL</th>
-                    <th>Created At</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {terrainAssets.map((row) => (
-                    <tr key={row.id}>
-                      <td>{row.id}</td>
-                      <td>{row.dataset_id}</td>
-                      <td>{row.asset_kind}</td>
-                      <td title={row.disk_path}>{row.disk_path}</td>
-                      <td title={row.access_url ?? ""}>
-                        {row.access_url ? (
-                          <a href={row.access_url} target="_blank" rel="noreferrer">
-                            {row.access_url}
-                          </a>
-                        ) : (
-                          "-"
-                        )}
-                      </td>
-                      <td>{row.created_at}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          </SectionPanel>
+          <SectionPanel title="Terrain 任务状态" description="查看地形构建任务执行进度与输出。">
+            <DataTable
+              columns={["Job ID", "Dataset", "格式", "DEM ID", "Boundary ID", "状态", "消息", "tiles_dir", "更新时间"]}
+              emptyText="暂无 Terrain 任务。"
+              rows={terrainJobs.map((row) => (
+                <tr key={row.id}>
+                  <td>{row.id}</td>
+                  <td>{row.dataset_id}</td>
+                  <td>{row.input_format}</td>
+                  <td>{row.dem_file_id}</td>
+                  <td>{row.boundary_file_id ?? "-"}</td>
+                  <td><StatusBadge tone={statusTone(row.status)}>{row.status}</StatusBadge></td>
+                  <td title={row.message} className="cell-muted">{row.message}</td>
+                  <td title={row.tiles_dir ?? ""} className="cell-muted">{row.tiles_dir ?? "-"}</td>
+                  <td>{row.updated_at}</td>
+                </tr>
+              ))}
+            />
+          </SectionPanel>
+          <SectionPanel title="已发布数据（Terrain）" description="展示已发布的 Terrain-RGB 资产。">
+            <AssetTable rows={terrainAssets} />
+          </SectionPanel>
         </>
       ) : null}
 
       {activeTab === "dynamic" ? (
         <>
-          <div className="panel">
-            <div className="panel-title">Dynamic输入上传（文件夹）</div>
+          <SectionPanel title="Dynamic 输入上传（文件夹）" description="以文件夹为单位管理水动力场时序输入资源。">
             <div className="inline-form">
               <input
                 ref={dynamicFolderInputRef}
@@ -918,53 +787,38 @@ export function DataManagementPage() {
                 value={dynamicFolderName}
                 placeholder="未选择文件夹"
               />
-              <button type="button" onClick={() => dynamicFolderInputRef.current?.click()}>
-                选择文件夹
+              <button type="button" className="secondary-btn" onClick={() => dynamicFolderInputRef.current?.click()}>
+                <FolderOpen size={16} />
+                <span>选择文件夹</span>
               </button>
-              <button onClick={() => void onUploadDynamicInputFolder()}>上传Dynamic输入文件夹</button>
+              <button className="primary-btn" onClick={() => void onUploadDynamicInputFolder()}>
+                <HardDriveUpload size={16} />
+                <span>上传 Dynamic 输入文件夹</span>
+              </button>
             </div>
-            <div className="table-wrap">
-              <table>
-                <colgroup>
-                  <col style={{ width: "8%" }} />
-                  <col style={{ width: "14%" }} />
-                  <col style={{ width: "14%" }} />
-                  <col style={{ width: "44%" }} />
-                  <col style={{ width: "20%" }} />
-                </colgroup>
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>文件名</th>
-                    <th>目录</th>
-                    <th>路径</th>
-                    <th>上传时间</th>
+            <DataTable
+              columns={["ID", "文件名", "目录", "路径", "上传时间"]}
+              emptyText="暂无 Dynamic 输入资源。"
+              rows={dynamicFiles.map((row) => {
+                const directory = row.relative_dir || row.folder_name;
+                return (
+                  <tr key={row.id}>
+                    <td>{row.id}</td>
+                    <td>{row.original_name}</td>
+                    <td title={directory} className="cell-muted">{directory}</td>
+                    <td title={row.stored_path} className="cell-muted">{row.stored_path}</td>
+                    <td>{row.created_at}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {dynamicFiles.map((row) => {
-                    const directory = row.relative_dir || row.folder_name;
-                    return (
-                    <tr key={row.id}>
-                      <td>{row.id}</td>
-                      <td>{row.original_name}</td>
-                      <td title={directory}>{directory}</td>
-                      <td title={row.stored_path}>{row.stored_path}</td>
-                      <td>{row.created_at}</td>
-                    </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                );
+              })}
+            />
+          </SectionPanel>
         </>
       ) : null}
 
       {activeTab === "visual" ? (
         <>
-          <div className="panel">
-            <div className="panel-title">其他可视化资源上传（GeoJSON / GLTF / PNG）</div>
+          <SectionPanel title="其他可视化资源上传（GeoJSON / GLTF / PNG）" description="补充模型、纹理和 GeoJSON 等视觉资源。">
             <div className="inline-form">
               <label>
                 资源类型
@@ -989,124 +843,126 @@ export function DataManagementPage() {
                 multiple
                 onChange={(e) => setPendingVisualFiles(Array.from(e.target.files ?? []))}
               />
-              <button onClick={() => void onUploadVisualAssets()}>上传可视化资源</button>
+              <button className="primary-btn" onClick={() => void onUploadVisualAssets()}>
+                <HardDriveUpload size={16} />
+                <span>上传可视化资源</span>
+              </button>
             </div>
-          </div>
-          <div className="panel">
-            <div className="panel-title">已发布数据（其他可视化资源）</div>
-
-            <div className="panel-title visual-section-title">GeoJSON</div>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Dataset</th>
-                    <th>Kind</th>
-                    <th>Path</th>
-                    <th>URL</th>
-                    <th>Created At</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visualGeojsonAssets.map((row) => (
-                    <tr key={row.id}>
-                      <td>{row.id}</td>
-                      <td>{row.dataset_id}</td>
-                      <td>{row.asset_kind}</td>
-                      <td title={row.disk_path}>{row.disk_path}</td>
-                      <td title={row.access_url ?? ""}>
-                        {row.access_url ? (
-                          <a href={row.access_url} target="_blank" rel="noreferrer">
-                            {row.access_url}
-                          </a>
-                        ) : (
-                          "-"
-                        )}
-                      </td>
-                      <td>{row.created_at}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="panel-title visual-section-title">Models (GLTF/GLB)</div>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Dataset</th>
-                    <th>Kind</th>
-                    <th>Path</th>
-                    <th>URL</th>
-                    <th>Created At</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visualModelAssets.map((row) => (
-                    <tr key={row.id}>
-                      <td>{row.id}</td>
-                      <td>{row.dataset_id}</td>
-                      <td>{row.asset_kind}</td>
-                      <td title={row.disk_path}>{row.disk_path}</td>
-                      <td title={row.access_url ?? ""}>
-                        {row.access_url ? (
-                          <a href={row.access_url} target="_blank" rel="noreferrer">
-                            {row.access_url}
-                          </a>
-                        ) : (
-                          "-"
-                        )}
-                      </td>
-                      <td>{row.created_at}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="panel-title visual-section-title">Textures (PNG)</div>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Dataset</th>
-                    <th>Kind</th>
-                    <th>Path</th>
-                    <th>URL</th>
-                    <th>Created At</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visualTextureAssets.map((row) => (
-                    <tr key={row.id}>
-                      <td>{row.id}</td>
-                      <td>{row.dataset_id}</td>
-                      <td>{row.asset_kind}</td>
-                      <td title={row.disk_path}>{row.disk_path}</td>
-                      <td title={row.access_url ?? ""}>
-                        {row.access_url ? (
-                          <a href={row.access_url} target="_blank" rel="noreferrer">
-                            {row.access_url}
-                          </a>
-                        ) : (
-                          "-"
-                        )}
-                      </td>
-                      <td>{row.created_at}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          </SectionPanel>
+          <SectionPanel title="已发布数据（其他可视化资源）" description="按资源类别分组展示已托管资源。">
+            <div className="subsection-heading">GeoJSON</div>
+            <AssetTable rows={visualGeojsonAssets} />
+            <div className="subsection-heading">Models (GLTF/GLB)</div>
+            <AssetTable rows={visualModelAssets} />
+            <div className="subsection-heading">Textures (PNG)</div>
+            <AssetTable rows={visualTextureAssets} />
+          </SectionPanel>
         </>
       ) : null}
       {!!error && <div className="error">{error}</div>}
     </div>
   );
+}
+
+function SectionPanel({
+  title,
+  description,
+  accent,
+  children
+}: {
+  title: string;
+  description?: string;
+  accent?: "blue" | "default";
+  children: ReactNode;
+}) {
+  return (
+    <div className={`panel section-panel ${accent === "blue" ? "section-panel-blue" : ""}`}>
+      <div className="section-header">
+        <div>
+          <div className="panel-title">{title}</div>
+          {description ? <div className="panel-description">{description}</div> : null}
+        </div>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function DataTable({
+  columns,
+  rows,
+  emptyText
+}: {
+  columns: string[];
+  rows: React.ReactNode[];
+  emptyText: string;
+}) {
+  return (
+    <div className="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            {columns.map((column) => (
+              <th key={column}>{column}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length > 0 ? rows : (
+            <tr>
+              <td colSpan={columns.length} className="table-empty">
+                {emptyText}
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function AssetTable({ rows }: { rows: AssetRecord[] }) {
+  return (
+    <DataTable
+      columns={["ID", "Dataset", "Kind", "Path", "URL", "Created At"]}
+      emptyText="暂无已发布资产。"
+      rows={rows.map((row) => (
+        <tr key={row.id}>
+          <td>{row.id}</td>
+          <td>{row.dataset_id}</td>
+          <td><StatusBadge tone="neutral">{row.asset_kind}</StatusBadge></td>
+          <td title={row.disk_path} className="cell-muted">{row.disk_path}</td>
+          <td title={row.access_url ?? ""}>
+            {row.access_url ? (
+              <a href={row.access_url} target="_blank" rel="noreferrer" className="link-with-icon">
+                <span>{row.access_url}</span>
+                <ArrowUpRight size={14} />
+              </a>
+            ) : (
+              "-"
+            )}
+          </td>
+          <td>{row.created_at}</td>
+        </tr>
+      ))}
+    />
+  );
+}
+
+function StatusBadge({
+  tone,
+  children
+}: {
+  tone: "success" | "warning" | "error" | "neutral";
+  children: ReactNode;
+}) {
+  return <span className={`status-badge status-${tone}`}>{children}</span>;
+}
+
+function statusTone(status: string): "success" | "warning" | "error" | "neutral" {
+  if (status === "success") return "success";
+  if (status === "failed") return "error";
+  if (status === "running" || status === "queued") return "warning";
+  return "neutral";
 }
 

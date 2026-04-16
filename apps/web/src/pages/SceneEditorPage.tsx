@@ -1,9 +1,29 @@
-﻿import { useMemo, useEffect, useState } from "react";
+﻿import {
+  Code2,
+  Eye,
+  PencilLine,
+  Plus,
+  Save
+} from "lucide-react";
+import { useMemo, useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { fetchAssets, fetchDynamicInputFiles, fetchScene, fetchSceneList, saveScene } from "../api/client";
 import { SceneMapPreview } from "../components/SceneMapPreview";
 import type { AssetRecord, DynamicInputFileRecord, SceneConfig, SceneLayer, SceneListItem } from "../types";
 
 const DEFAULT_SCENE_ID = "default";
+const VIEW_LIMITS = {
+  lngMin: -180,
+  lngMax: 180,
+  latMin: -90,
+  latMax: 90,
+  zoomMin: 0,
+  zoomMax: 22,
+  bearingMin: -180,
+  bearingMax: 180,
+  pitchMin: 0,
+  pitchMax: 85
+} as const;
 
 type EditorMode = "form" | "json";
 type AddLayerType = "enc" | "hydro_scalar" | "hydro_vector" | "terrain" | "gltf_model" | "breath_wall" | "dynamic_arrow" | "hydrodynamic";
@@ -14,6 +34,7 @@ type BuildLayerParams = {
   encIconBaseUrl: string;
   selectedHydroAssetId: string;
   selectedTerrainAssetId: string;
+  selectedTerrainMaskGeojsonAssetId: string;
   selectedHydrodynamicAssetKey: string;
   selectedGeojsonAssetId: string;
   enhanceModelUrl: string;
@@ -48,6 +69,7 @@ export function SceneEditorPage() {
   const [encIconBaseUrl, setEncIconBaseUrl] = useState("/static/enc-icons");
   const [selectedHydroAssetId, setSelectedHydroAssetId] = useState("");
   const [selectedTerrainAssetId, setSelectedTerrainAssetId] = useState("");
+  const [selectedTerrainMaskGeojsonAssetId, setSelectedTerrainMaskGeojsonAssetId] = useState("");
   const [selectedGeojsonAssetId, setSelectedGeojsonAssetId] = useState("");
   const [selectedDynamicAssetId, setSelectedDynamicAssetId] = useState("");
   const [enhanceModelUrl, setEnhanceModelUrl] = useState("/static/models/demo.glb");
@@ -117,9 +139,10 @@ export function SceneEditorPage() {
   }
 
   function applyFormScene(nextScene: SceneConfig) {
-    setFormScene(nextScene);
-    setJsonText(JSON.stringify(nextScene, null, 2));
-    setPreviewScene(nextScene);
+    const normalized = normalizeScene(nextScene);
+    setFormScene(normalized);
+    setJsonText(JSON.stringify(normalized, null, 2));
+    setPreviewScene(normalized);
   }
 
   function setFormSceneWith(mutator: (scene: SceneConfig) => SceneConfig) {
@@ -167,8 +190,11 @@ export function SceneEditorPage() {
     try {
       const scene = editorMode === "json" ? parseDraftScene(jsonText) : formScene;
       await saveScene(sceneId, scene);
-      if (editorMode === "json") setFormScene(scene);
-      setPreviewScene(scene);
+      if (editorMode === "json") {
+        applyFormScene(scene);
+      } else {
+        setPreviewScene(scene);
+      }
       setInfo("保存成功。");
       await loadSceneOptions();
     } catch (err) {
@@ -181,8 +207,11 @@ export function SceneEditorPage() {
     setInfo("");
     try {
       const scene = editorMode === "json" ? parseDraftScene(jsonText) : formScene;
-      if (editorMode === "json") setFormScene(scene);
-      setPreviewScene(scene);
+      if (editorMode === "json") {
+        applyFormScene(scene);
+      } else {
+        setPreviewScene(scene);
+      }
       setInfo("预览已更新。");
     } catch (err) {
       setError(String(err));
@@ -217,6 +246,7 @@ export function SceneEditorPage() {
         encIconBaseUrl,
         selectedHydroAssetId,
         selectedTerrainAssetId,
+        selectedTerrainMaskGeojsonAssetId,
         selectedHydrodynamicAssetKey: selectedDynamicAssetId,
         selectedGeojsonAssetId,
         enhanceModelUrl,
@@ -290,6 +320,9 @@ export function SceneEditorPage() {
       const filtered = assets.filter((a) => a.asset_kind === "geojson" && !!a.access_url);
       setGeojsonAssets(filtered);
       if (!selectedGeojsonAssetId && filtered.length > 0) setSelectedGeojsonAssetId(String(filtered[0].id));
+      if (!selectedTerrainMaskGeojsonAssetId && filtered.length > 0) {
+        setSelectedTerrainMaskGeojsonAssetId(String(filtered[0].id));
+      }
     } catch (err) {
       setError(String(err));
     }
@@ -308,67 +341,218 @@ export function SceneEditorPage() {
   return (
     <div className="editor-layout">
       <div className="panel scene-editor-panel">
-        <div className="panel-title">场景编辑</div>
-        <div className="editor-mode-tabs">
-          <button className={editorMode === "form" ? "active" : ""} onClick={() => onSwitchEditorMode("form")}>表单配置</button>
-          <button className={editorMode === "json" ? "active" : ""} onClick={() => onSwitchEditorMode("json")}>JSON 配置</button>
+        <div className="editor-shell-header">
+          <div>
+            <div className="page-eyebrow">Scene Workspace</div>
+            <div className="page-title-row">
+              <h1 className="page-title">场景编辑</h1>
+              <EditorBadge tone="info">{sceneId}</EditorBadge>
+            </div>
+            <p className="page-description">以配置驱动方式组织视图与图层，保持原有编辑逻辑，只优化表达效率与可读性。</p>
+          </div>
+          <div className="editor-mode-tabs">
+            <button className={editorMode === "form" ? "active" : ""} onClick={() => onSwitchEditorMode("form")}>
+              <PencilLine size={15} />
+              <span>表单配置</span>
+            </button>
+            <button className={editorMode === "json" ? "active" : ""} onClick={() => onSwitchEditorMode("json")}>
+              <Code2 size={15} />
+              <span>JSON 配置</span>
+            </button>
+          </div>
         </div>
 
-        <div className="inline-form">
-          <label>已保存场景<select value={selectedSceneId} onChange={(e) => void onSelectScene(e.target.value)}>{sceneOptions.map((item) => (<option key={item.id} value={item.id}>{item.id}</option>))}</select></label>
-          <label>新建场景 ID<input value={newSceneId} onChange={(e) => setNewSceneId(e.target.value)} /></label>
-          <button onClick={onCreateScene}>新建场景</button>
-          <label>当前编辑场景<input value={sceneId} readOnly /></label>
-          <button onClick={onSave}>保存</button>
-          <button onClick={onPreview}>应用预览</button>
+        <div className="editor-toolbar-card">
+          <div className="scene-command-header">当前场景: {sceneId}</div>
+          <div className="scene-command-row">
+            <div className="scene-command-block">
+              <label className="scene-command-field">
+                加载已保存场景
+                <select value={selectedSceneId} onChange={(e) => void onSelectScene(e.target.value)}>
+                  {sceneOptions.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.id}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button className="secondary-btn scene-command-btn" onClick={() => void onSelectScene(selectedSceneId)}>
+                <span>加载</span>
+              </button>
+            </div>
+            <div className="scene-command-block">
+              <label className="scene-command-field">
+                新建空白场景
+                <input value={newSceneId} onChange={(e) => setNewSceneId(e.target.value)} />
+              </label>
+              <button className="secondary-btn scene-command-btn" onClick={onCreateScene}>
+                <span>新建</span>
+              </button>
+            </div>
+            <button className="secondary-btn scene-command-btn" onClick={onPreview}>
+              <Eye size={16} />
+              <span>预览</span>
+            </button>
+            <button className="primary-btn scene-command-btn" onClick={onSave}>
+              <Save size={16} />
+              <span>保存</span>
+            </button>
+          </div>
         </div>
 
         <div className="scene-editor-scroll">
           {editorMode === "form" ? (
             <>
-            <div className="panel-subtitle">1. 元数据块</div>
-            <div className="inline-form scene-form-block">
-              <label>name（场景名称）<input value={formScene.name} onChange={(e) => setFormSceneWith((s) => ({ ...s, name: e.target.value }))} /></label>
-            </div>
-
-            <div className="panel-subtitle">2. 视图块</div>
-            <div className="inline-form scene-form-block">
-              <label>center lng<input type="number" step="0.000001" value={formScene.view.center[0]} onChange={(e) => setFormSceneWith((s) => ({ ...s, view: { ...s.view, center: [Number(e.target.value), s.view.center[1]] } }))} /></label>
-              <label>center lat<input type="number" step="0.000001" value={formScene.view.center[1]} onChange={(e) => setFormSceneWith((s) => ({ ...s, view: { ...s.view, center: [s.view.center[0], Number(e.target.value)] } }))} /></label>
-              <div className="view-compact-row">
-                <label>zoom<input type="number" step="0.1" value={formScene.view.zoom} onChange={(e) => setFormSceneWith((s) => ({ ...s, view: { ...s.view, zoom: Number(e.target.value) } }))} /></label>
-                <label>bearing<input type="number" step="1" value={formScene.view.bearing ?? 0} onChange={(e) => setFormSceneWith((s) => ({ ...s, view: { ...s.view, bearing: Number(e.target.value) } }))} /></label>
-                <label>pitch<input type="number" step="1" value={formScene.view.pitch ?? 0} onChange={(e) => setFormSceneWith((s) => ({ ...s, view: { ...s.view, pitch: Number(e.target.value) } }))} /></label>
+              <div className="panel-subtitle">1. 元数据块</div>
+              <div className="inline-form scene-form-block">
+                <label>
+                  name（场景名称）
+                  <input value={formScene.name} onChange={(e) => setFormSceneWith((s) => ({ ...s, name: e.target.value }))} />
+                </label>
               </div>
-            </div>
 
-            <div className="panel-subtitle">3. 图层块</div>
-            <div className="inline-form scene-form-block">
-              <button onClick={() => setIsAddLayerModalOpen(true)}>添加图层</button>
-            </div>
+              <div className="panel-subtitle">2. 视图块</div>
+              <div className="inline-form scene-form-block">
+                <label>
+                  center lng
+                  <input
+                    type="number"
+                    step="0.000001"
+                    min={VIEW_LIMITS.lngMin}
+                    max={VIEW_LIMITS.lngMax}
+                    value={formScene.view.center[0]}
+                    onChange={(e) => {
+                      if (!Number.isFinite(e.target.valueAsNumber)) return;
+                      const nextLng = clamp(e.target.valueAsNumber, VIEW_LIMITS.lngMin, VIEW_LIMITS.lngMax);
+                      setFormSceneWith((s) => ({ ...s, view: { ...s.view, center: [nextLng, s.view.center[1]] } }));
+                    }}
+                  />
+                </label>
+                <label>
+                  center lat
+                  <input
+                    type="number"
+                    step="0.000001"
+                    min={VIEW_LIMITS.latMin}
+                    max={VIEW_LIMITS.latMax}
+                    value={formScene.view.center[1]}
+                    onChange={(e) => {
+                      if (!Number.isFinite(e.target.valueAsNumber)) return;
+                      const nextLat = clamp(e.target.valueAsNumber, VIEW_LIMITS.latMin, VIEW_LIMITS.latMax);
+                      setFormSceneWith((s) => ({ ...s, view: { ...s.view, center: [s.view.center[0], nextLat] } }));
+                    }}
+                  />
+                </label>
+                <div className="view-compact-row">
+                  <label>
+                    zoom
+                    <input
+                      type="number"
+                      step="0.1"
+                      min={VIEW_LIMITS.zoomMin}
+                      max={VIEW_LIMITS.zoomMax}
+                      value={formScene.view.zoom}
+                      onChange={(e) => {
+                        if (!Number.isFinite(e.target.valueAsNumber)) return;
+                        const nextZoom = clamp(e.target.valueAsNumber, VIEW_LIMITS.zoomMin, VIEW_LIMITS.zoomMax);
+                        setFormSceneWith((s) => ({ ...s, view: { ...s.view, zoom: nextZoom } }));
+                      }}
+                    />
+                  </label>
+                  <label>
+                    bearing
+                    <input
+                      type="number"
+                      step="1"
+                      min={VIEW_LIMITS.bearingMin}
+                      max={VIEW_LIMITS.bearingMax}
+                      value={formScene.view.bearing ?? 0}
+                      onChange={(e) => {
+                        if (!Number.isFinite(e.target.valueAsNumber)) return;
+                        const nextBearing = clamp(e.target.valueAsNumber, VIEW_LIMITS.bearingMin, VIEW_LIMITS.bearingMax);
+                        setFormSceneWith((s) => ({ ...s, view: { ...s.view, bearing: nextBearing } }));
+                      }}
+                    />
+                  </label>
+                  <label>
+                    pitch
+                    <input
+                      type="number"
+                      step="1"
+                      min={VIEW_LIMITS.pitchMin}
+                      max={VIEW_LIMITS.pitchMax}
+                      value={formScene.view.pitch ?? 0}
+                      onChange={(e) => {
+                        if (!Number.isFinite(e.target.valueAsNumber)) return;
+                        const nextPitch = clamp(e.target.valueAsNumber, VIEW_LIMITS.pitchMin, VIEW_LIMITS.pitchMax);
+                        setFormSceneWith((s) => ({ ...s, view: { ...s.view, pitch: nextPitch } }));
+                      }}
+                    />
+                  </label>
+                </div>
+              </div>
 
-            <div className="table-wrap scene-layer-table">
-              <table>
-                <thead><tr><th>图层 ID</th><th>类型</th><th>启用</th><th>参数摘要</th><th>操作</th></tr></thead>
-                <tbody>
-                  {formScene.layers.length === 0 ? (<tr><td colSpan={5}>当前没有图层，请在上方选择类型并添加。</td></tr>) : (
-                    formScene.layers.map((layer) => (
-                      <tr key={layer.id}>
-                        <td>{layer.id}</td><td>{layer.type}</td>
-                        <td><input type="checkbox" checked={layer.enabled} onChange={(e) => setFormSceneWith((scene) => ({ ...scene, layers: scene.layers.map((item) => (item.id === layer.id ? { ...item, enabled: e.target.checked } : item)) }))} /></td>
-                        <td title={JSON.stringify(layer.config)}>{Object.keys(layer.config).join(", ")}</td>
-                        <td><button onClick={() => onRemoveLayer(layer.id)}>移除</button></td>
+              <div className="panel-subtitle">3. 图层块</div>
+              <div className="inline-form scene-form-block scene-form-toolbar">
+                <div className="section-meta">共 {formScene.layers.length} 个图层</div>
+                <button className="primary-btn" onClick={() => setIsAddLayerModalOpen(true)}>
+                  <Plus size={16} />
+                  <span>添加图层</span>
+                </button>
+              </div>
+
+              <div className="table-wrap scene-layer-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>图层 ID</th>
+                      <th>类型</th>
+                      <th>启用</th>
+                      <th>参数摘要</th>
+                      <th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {formScene.layers.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="table-empty">
+                          当前没有图层，请在上方添加。
+                        </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                    ) : (
+                      formScene.layers.map((layer) => (
+                        <tr key={layer.id}>
+                          <td>{layer.id}</td>
+                          <td><EditorBadge tone="neutral">{layer.type}</EditorBadge></td>
+                          <td>
+                            <input
+                              type="checkbox"
+                              checked={layer.enabled}
+                              onChange={(e) =>
+                                setFormSceneWith((scene) => ({
+                                  ...scene,
+                                  layers: scene.layers.map((item) => (item.id === layer.id ? { ...item, enabled: e.target.checked } : item))
+                                }))
+                              }
+                            />
+                          </td>
+                          <td title={JSON.stringify(layer.config)} className="cell-muted">{Object.keys(layer.config).join(", ")}</td>
+                          <td>
+                            <button className="danger-btn" onClick={() => onRemoveLayer(layer.id)}>
+                              移除
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </>
           ) : (
             <>
-            <div className="panel-subtitle">JSON 配置模式（高级）</div>
-            <textarea className="json-editor" value={jsonText} onChange={(e) => setJsonText(e.target.value)} spellCheck={false} />
+              <div className="panel-subtitle">JSON 配置模式（高级）</div>
+              <textarea className="json-editor" value={jsonText} onChange={(e) => setJsonText(e.target.value)} spellCheck={false} />
             </>
           )}
         </div>
@@ -379,18 +563,130 @@ export function SceneEditorPage() {
         <div className="modal-backdrop" onClick={() => setIsAddLayerModalOpen(false)}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <div className="panel-title">添加图层</div>
+            <div className="panel-description">选择图层类型和关联资产，快速生成符合当前场景配置结构的图层项。</div>
             <div className="inline-form">
-              <label>图层类型<select value={newLayerType} onChange={(e) => setNewLayerType(e.target.value as AddLayerType)}>{Object.entries(layerTypeLabelMap).map(([value, label]) => (<option key={value} value={value}>{label}</option>))}</select></label>
+              <label>
+                图层类型
+                <select value={newLayerType} onChange={(e) => setNewLayerType(e.target.value as AddLayerType)}>
+                  {Object.entries(layerTypeLabelMap).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-              {newLayerType === "enc" ? (<><label>已发布 ENC 资产<select value={selectedEncAssetId} onChange={(e) => setSelectedEncAssetId(e.target.value)}><option value="">请选择</option>{encAssets.map((asset) => (<option key={asset.id} value={String(asset.id)}>{asset.dataset_id} ({asset.asset_kind})</option>))}</select></label><label>Icon Base URL<input value={encIconBaseUrl} onChange={(e) => setEncIconBaseUrl(e.target.value)} /></label></>) : null}
-              {newLayerType === "hydro_scalar" || newLayerType === "hydro_vector" ? (<><label>已发布 Hydro 资产<select value={selectedHydroAssetId} onChange={(e) => setSelectedHydroAssetId(e.target.value)}><option value="">请选择</option>{hydroAssets.filter((a) => (newLayerType === "hydro_scalar" ? a.asset_kind === "hydro_bin_scalar" : a.asset_kind === "hydro_bin_vector")).map((asset) => (<option key={asset.id} value={String(asset.id)}>{asset.dataset_id} ({asset.asset_kind})</option>))}</select></label></>) : null}
-              {newLayerType === "terrain" ? (<><label>已发布 Terrain 资产<select value={selectedTerrainAssetId} onChange={(e) => setSelectedTerrainAssetId(e.target.value)}><option value="">请选择</option>{terrainAssets.map((asset) => (<option key={asset.id} value={String(asset.id)}>{asset.dataset_id} ({asset.asset_kind})</option>))}</select></label></>) : null}
-              {newLayerType === "hydrodynamic" ? (<><label>已发布 Dynamic 资产<select value={selectedDynamicAssetId} onChange={(e) => setSelectedDynamicAssetId(e.target.value)}><option value="">请选择</option>{dynamicFolderOptions.map((asset) => (<option key={asset.key} value={asset.key}>{asset.folderName}（{asset.fileCount}个文件）</option>))}</select></label></>) : null}
-              {newLayerType === "gltf_model" || newLayerType === "breath_wall" || newLayerType === "dynamic_arrow" ? (<><label>GeoJSON 资产<select value={selectedGeojsonAssetId} onChange={(e) => setSelectedGeojsonAssetId(e.target.value)}><option value="">请选择</option>{geojsonAssets.map((asset) => (<option key={asset.id} value={String(asset.id)}>{asset.dataset_id}</option>))}</select></label>{newLayerType === "gltf_model" ? (<label>模型 URL<input value={enhanceModelUrl} onChange={(e) => setEnhanceModelUrl(e.target.value)} /></label>) : null}{newLayerType === "dynamic_arrow" ? (<label>箭头纹理 URL<input value={enhanceTextureUrl} onChange={(e) => setEnhanceTextureUrl(e.target.value)} /></label>) : null}</>) : null}
+              {newLayerType === "enc" ? (
+                <>
+                  <label>
+                    已发布 ENC 资产
+                    <select value={selectedEncAssetId} onChange={(e) => setSelectedEncAssetId(e.target.value)}>
+                      <option value="">请选择</option>
+                      {encAssets.map((asset) => (
+                        <option key={asset.id} value={String(asset.id)}>
+                          {asset.dataset_id} ({asset.asset_kind})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Icon Base URL
+                    <input value={encIconBaseUrl} onChange={(e) => setEncIconBaseUrl(e.target.value)} />
+                  </label>
+                </>
+              ) : null}
+              {newLayerType === "hydro_scalar" || newLayerType === "hydro_vector" ? (
+                <>
+                  <label>
+                    已发布 Hydro 资产
+                    <select value={selectedHydroAssetId} onChange={(e) => setSelectedHydroAssetId(e.target.value)}>
+                      <option value="">请选择</option>
+                      {hydroAssets
+                        .filter((a) => (newLayerType === "hydro_scalar" ? a.asset_kind === "hydro_bin_scalar" : a.asset_kind === "hydro_bin_vector"))
+                        .map((asset) => (
+                          <option key={asset.id} value={String(asset.id)}>
+                            {asset.dataset_id} ({asset.asset_kind})
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                </>
+              ) : null}
+              {newLayerType === "terrain" ? (
+                <>
+                  <label>
+                    已发布 Terrain 资产
+                    <select value={selectedTerrainAssetId} onChange={(e) => setSelectedTerrainAssetId(e.target.value)}>
+                      <option value="">请选择</option>
+                      {terrainAssets.map((asset) => (
+                        <option key={asset.id} value={String(asset.id)}>
+                          {asset.dataset_id} ({asset.asset_kind})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Mask GeoJSON 资产
+                    <select
+                      value={selectedTerrainMaskGeojsonAssetId}
+                      onChange={(e) => setSelectedTerrainMaskGeojsonAssetId(e.target.value)}
+                    >
+                      <option value="">请选择</option>
+                      {geojsonAssets.map((asset) => (
+                        <option key={asset.id} value={String(asset.id)}>
+                          {asset.dataset_id}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </>
+              ) : null}
+              {newLayerType === "hydrodynamic" ? (
+                <>
+                  <label>
+                    已发布 Dynamic 资产
+                    <select value={selectedDynamicAssetId} onChange={(e) => setSelectedDynamicAssetId(e.target.value)}>
+                      <option value="">请选择</option>
+                      {dynamicFolderOptions.map((asset) => (
+                        <option key={asset.key} value={asset.key}>
+                          {asset.folderName}（{asset.fileCount}个文件）
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </>
+              ) : null}
+              {newLayerType === "gltf_model" || newLayerType === "breath_wall" || newLayerType === "dynamic_arrow" ? (
+                <>
+                  <label>
+                    GeoJSON 资产
+                    <select value={selectedGeojsonAssetId} onChange={(e) => setSelectedGeojsonAssetId(e.target.value)}>
+                      <option value="">请选择</option>
+                      {geojsonAssets.map((asset) => (
+                        <option key={asset.id} value={String(asset.id)}>
+                          {asset.dataset_id}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {newLayerType === "gltf_model" ? (
+                    <label>
+                      模型 URL
+                      <input value={enhanceModelUrl} onChange={(e) => setEnhanceModelUrl(e.target.value)} />
+                    </label>
+                  ) : null}
+                  {newLayerType === "dynamic_arrow" ? (
+                    <label>
+                      箭头纹理 URL
+                      <input value={enhanceTextureUrl} onChange={(e) => setEnhanceTextureUrl(e.target.value)} />
+                    </label>
+                  ) : null}
+                </>
+              ) : null}
             </div>
             <div className="modal-actions">
-              <button onClick={() => setIsAddLayerModalOpen(false)}>取消</button>
-              <button onClick={onAddLayer}>确认添加</button>
+              <button className="secondary-btn" onClick={() => setIsAddLayerModalOpen(false)}>取消</button>
+              <button className="primary-btn" onClick={onAddLayer}>确认添加</button>
             </div>
           </div>
         </div>
@@ -403,8 +699,34 @@ export function SceneEditorPage() {
   );
 }
 
+function EditorBadge({
+  tone,
+  children
+}: {
+  tone: "info" | "neutral";
+  children: ReactNode;
+}) {
+  return <span className={`status-badge ${tone === "info" ? "status-info" : "status-neutral"}`}>{children}</span>;
+}
+
 function buildLayerByType(params: BuildLayerParams): SceneLayer {
-  const { layerType, selectedEncAssetId, encIconBaseUrl, selectedHydroAssetId, selectedTerrainAssetId, selectedHydrodynamicAssetKey, selectedGeojsonAssetId, enhanceModelUrl, enhanceTextureUrl, encAssets, hydroAssets, terrainAssets, dynamicAssets, geojsonAssets } = params;
+  const {
+    layerType,
+    selectedEncAssetId,
+    encIconBaseUrl,
+    selectedHydroAssetId,
+    selectedTerrainAssetId,
+    selectedTerrainMaskGeojsonAssetId,
+    selectedHydrodynamicAssetKey,
+    selectedGeojsonAssetId,
+    enhanceModelUrl,
+    enhanceTextureUrl,
+    encAssets,
+    hydroAssets,
+    terrainAssets,
+    dynamicAssets,
+    geojsonAssets
+  } = params;
   const now = Date.now();
 
   if (layerType === "enc") {
@@ -430,7 +752,25 @@ function buildLayerByType(params: BuildLayerParams): SceneLayer {
     if (!selectedTerrainAssetId) throw new Error("请先选择一个 Terrain 资产。");
     const asset = terrainAssets.find((a) => String(a.id) === selectedTerrainAssetId);
     if (!asset?.access_url) throw new Error("选中的 Terrain 资产缺少可访问 URL。");
-    return { id: `terrain-${now}`, type: "terrain", enabled: true, config: { terrainTileURL: asset.access_url, exaggeration: 5, withContour: true, withLighting: true, interval: 5, elevationRange: [-300, 2], shallowColor: [34, 76, 80], deepColor: [255, 255, 255] } };
+    if (!selectedTerrainMaskGeojsonAssetId) throw new Error("请先选择一个 Mask GeoJSON 资产。");
+    const terrainMaskAsset = geojsonAssets.find((a) => String(a.id) === selectedTerrainMaskGeojsonAssetId);
+    if (!terrainMaskAsset?.access_url) throw new Error("选中的 Mask GeoJSON 资产缺少可访问 URL。");
+    return {
+      id: `terrain-${now}`,
+      type: "terrain",
+      enabled: true,
+      config: {
+        maskURL: terrainMaskAsset.access_url,
+        terrainTileURL: asset.access_url,
+        exaggeration: 5,
+        withContour: true,
+        withLighting: true,
+        interval: 5,
+        elevationRange: [-300, 2],
+        shallowColor: [34, 76, 80],
+        deepColor: [255, 255, 255]
+      }
+    };
   }
 
   if (layerType === "hydrodynamic") {
@@ -498,6 +838,32 @@ function parseDraftScene(text: string): SceneConfig {
   } catch {
     throw new Error("JSON 格式不合法。");
   }
+}
+
+function toFiniteNumber(value: unknown, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function normalizeScene(scene: SceneConfig): SceneConfig {
+  const fallback = createEmptyScene(scene.name || DEFAULT_SCENE_ID);
+  return {
+    ...scene,
+    view: {
+      ...scene.view,
+      center: [
+        clamp(toFiniteNumber(scene.view?.center?.[0], fallback.view.center[0]), VIEW_LIMITS.lngMin, VIEW_LIMITS.lngMax),
+        clamp(toFiniteNumber(scene.view?.center?.[1], fallback.view.center[1]), VIEW_LIMITS.latMin, VIEW_LIMITS.latMax)
+      ],
+      zoom: clamp(toFiniteNumber(scene.view?.zoom, fallback.view.zoom), VIEW_LIMITS.zoomMin, VIEW_LIMITS.zoomMax),
+      bearing: clamp(toFiniteNumber(scene.view?.bearing, fallback.view.bearing ?? 0), VIEW_LIMITS.bearingMin, VIEW_LIMITS.bearingMax),
+      pitch: clamp(toFiniteNumber(scene.view?.pitch, fallback.view.pitch ?? 0), VIEW_LIMITS.pitchMin, VIEW_LIMITS.pitchMax)
+    }
+  };
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
 }
 
 function createEmptyScene(sceneId: string): SceneConfig {

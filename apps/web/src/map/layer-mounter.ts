@@ -68,7 +68,7 @@ function mountEncLayer(map: mapboxgl.Map, layer: SceneLayer): void {
 }
 
 function mountTerrainLayer(map: mapboxgl.Map, layer: SceneLayer): void {
-  const terrainLayer = new TerrainLayer(layer.config);
+  const terrainLayer = new TerrainLayer(layer.config as unknown as ConstructorParameters<typeof TerrainLayer>[0]);
   (terrainLayer as { id?: string }).id = layer.id;
   if (!map.getLayer(terrainLayer.id)) {
     map.addLayer(terrainLayer as unknown as mapboxgl.AnyLayer);
