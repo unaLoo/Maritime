@@ -97,6 +97,15 @@ def init_db() -> None:
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
             );
+
+            CREATE TABLE IF NOT EXISTS dynamic_input_files (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                folder_name TEXT NOT NULL,
+                original_name TEXT NOT NULL,
+                relative_dir TEXT NOT NULL,
+                stored_path TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
             """
         )
 

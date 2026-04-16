@@ -4,7 +4,7 @@ import proj4 from "proj4";
 import { TerrainVertexShader, TerrainFragmentShader } from "./shaders/TerrainShader.js";
 import { WaterVertexShader, WaterFragmentShader } from "./shaders/WaterShader.js";
 
-const DEFAULT_LAYER_ID = "water-custom-layer";
+const DEFAULT_LAYER_ID = "hydrodynamic-custom-layer";
 const DEFAULT_ALTITUDE = 0;
 const DEFAULT_GRID_RESOLUTION = 1024;
 const DEFAULT_RASTER_TEXTURE_SIZE = 2048;
@@ -14,48 +14,65 @@ const DEFAULT_STYLE = {
   waterShallowColor: "#06D5FF",
   waterDeepColor: "#0D1AA8",
   waterOpacity: 0.8,
-  waterDepthDensity: 0.3,
+  waterDepthDensity: 0.3
 };
 const DEFAULT_ANIMATION = {
   swapDuration: 2000,
   swapTimeStart: 0.75,
-  swapTimeEnd: 1.0,
+  swapTimeEnd: 1.0
 };
 const DEFAULT_TEXTURES = {
   terrainMap: "dem/dem.png",
   huvPrefix: "huv/huv_",
   huvSuffix: ".png",
-  foam: "./assets/Textures/Foam.png",
-  normal: "./assets/Textures/NormalMap.png",
-  displacement: "./assets/Textures/DisplacementMap.png",
-  heightNoise: "./assets/Textures/HeightMap.png",
-  heightNoiseNormal: "./assets/Textures/HeightNormalMap.png",
-  ramp: "./assets/Textures/RampMap.png",
+  foam: "/textures/Foam.png",
+  normal: "/textures/NormalMap.png",
+  displacement: "/textures/DisplacementMap.png",
+  heightNoise: "/textures/HeightMap.png",
+  heightNoiseNormal: "/textures/HeightNormalMap.png",
+  ramp: "/textures/RampMap.png"
 };
 
+function normalizeDataResourcePath(pathValue) {
+  const raw = String(pathValue ?? "").trim();
+  if (!raw) return raw;
+  let normalized = raw.replace(/\\/g, "/");
+  if (normalized.startsWith("/storage/raw/")) {
+    normalized = normalized.replace("/storage/raw/", "/raw/");
+  }
+  if (!normalized.endsWith("/")) {
+    normalized = `${normalized}/`;
+  }
+  return normalized;
+}
+
 function mergeSceneOptions(options) {
+  const dataResource = {
+    ...(options.dataResource ?? {})
+  };
+  dataResource.path = normalizeDataResourcePath(dataResource.path);
   return {
-    dataResource: options.dataResource,
+    dataResource,
     layer: {
       id: options.layer?.id ?? DEFAULT_LAYER_ID,
-      altitude: options.layer?.altitude ?? DEFAULT_ALTITUDE,
+      altitude: options.layer?.altitude ?? DEFAULT_ALTITUDE
     },
     geometry: {
       gridResolution: options.geometry?.gridResolution ?? DEFAULT_GRID_RESOLUTION,
-      rasterTextureSize: options.geometry?.rasterTextureSize ?? DEFAULT_RASTER_TEXTURE_SIZE,
+      rasterTextureSize: options.geometry?.rasterTextureSize ?? DEFAULT_RASTER_TEXTURE_SIZE
     },
     style: {
       ...DEFAULT_STYLE,
-      ...options.style,
+      ...options.style
     },
     animation: {
       ...DEFAULT_ANIMATION,
-      ...options.animation,
+      ...options.animation
     },
     textures: {
       ...DEFAULT_TEXTURES,
-      ...options.textures,
-    },
+      ...options.textures
+    }
   };
 }
 
@@ -76,11 +93,11 @@ function createSceneState() {
     dataConfig: null,
     textureLoader: null,
     startTime: 0,
-    modelTransform: null,
+    modelTransform: null
   };
 }
 
-export function createWaterSceneController(rawOptions) {
+export function createHydrodynamicLayerController(rawOptions) {
   const options = mergeSceneOptions(rawOptions);
   const state = createSceneState();
 
@@ -141,12 +158,12 @@ export function createWaterSceneController(rawOptions) {
         value: new THREE.Vector2(
           options.geometry.rasterTextureSize,
           (dem.mapsize[1] * options.geometry.rasterTextureSize) / dem.mapsize[0]
-        ),
+        )
       },
       terrainColor: { value: new THREE.Color(options.style.terrainColor) },
       terrainNormalY: { value: 0.2 },
       minTerrainHeight: { value: dem.min_height },
-      maxTerrainHeight: { value: dem.max_height },
+      maxTerrainHeight: { value: dem.max_height }
     };
 
     return new THREE.Mesh(
@@ -157,7 +174,7 @@ export function createWaterSceneController(rawOptions) {
         fragmentShader: TerrainFragmentShader,
         side: THREE.DoubleSide,
         depthWrite: true,
-        transparent: false,
+        transparent: false
       })
     );
   }
@@ -212,13 +229,13 @@ export function createWaterSceneController(rawOptions) {
         value: new THREE.Vector2(
           options.geometry.rasterTextureSize,
           (huv.mapsize[1] * options.geometry.rasterTextureSize) / huv.mapsize[0]
-        ),
+        )
       },
       terrainMapSize: {
         value: new THREE.Vector2(
           options.geometry.rasterTextureSize,
           (dem.mapsize[1] * options.geometry.rasterTextureSize) / dem.mapsize[0]
-        ),
+        )
       },
       normalStrength: { value: 2.0 },
       waterNormalY: { value: 20 },
@@ -265,7 +282,7 @@ export function createWaterSceneController(rawOptions) {
       foamMinEdge: { value: 0.25 },
       foamMaxEdge: { value: 0.5 },
       foamVelocityMaskMinEdge: { value: 0.05 },
-      foamVelocityMaskMaxEdge: { value: 0.2 },
+      foamVelocityMaskMaxEdge: { value: 0.2 }
     };
 
     const mesh = new THREE.Mesh(
@@ -283,7 +300,7 @@ export function createWaterSceneController(rawOptions) {
         blending: THREE.CustomBlending,
         blendSrc: THREE.SrcAlphaFactor,
         blendDst: THREE.OneMinusSrcAlphaFactor,
-        blendEquation: THREE.AddEquation,
+        blendEquation: THREE.AddEquation
       })
     );
 
@@ -340,7 +357,7 @@ export function createWaterSceneController(rawOptions) {
       translateX: mercatorCoordinate.x,
       translateY: mercatorCoordinate.y,
       translateZ: mercatorCoordinate.z,
-      scale: mercatorCoordinate.meterInMercatorCoordinateUnits(),
+      scale: mercatorCoordinate.meterInMercatorCoordinateUnits()
     };
   }
 
@@ -355,7 +372,7 @@ export function createWaterSceneController(rawOptions) {
         state.renderer = new THREE.WebGLRenderer({
           canvas: mapInstance.getCanvas(),
           context: gl,
-          antialias: true,
+          antialias: true
         });
         state.renderer.autoClear = false;
 
@@ -385,7 +402,7 @@ export function createWaterSceneController(rawOptions) {
         state.renderer.resetState();
         state.renderer.render(state.scene, state.camera);
         map.triggerRepaint();
-      },
+      }
     };
   }
 
@@ -464,6 +481,8 @@ export function createWaterSceneController(rawOptions) {
 
   return {
     initialize,
-    destroy,
+    destroy
   };
 }
+
+export const createWaterSceneController = createHydrodynamicLayerController;

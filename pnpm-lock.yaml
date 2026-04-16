@@ -25,6 +25,9 @@ importers:
       pbf:
         specifier: ^4.0.1
         version: 4.0.1
+      proj4:
+        specifier: ^2.20.8
+        version: 2.20.8
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -620,6 +623,9 @@ packages:
   meshoptimizer@1.0.1:
     resolution: {integrity: sha512-Vix+QlA1YYT3FwmBBZ+49cE5y/b+pRrcXKqGpS5ouh33d3lSp2PoTpCw19E0cKDFWalembrHnIaZetf27a+W2g==}
 
+  mgrs@1.0.0:
+    resolution: {integrity: sha512-awNbTOqCxK1DBGjalK3xqWIstBZgN6fxsMSiXLs9/spqWkF2pAhb2rrYCFSsr1/tT7PhcDGjZndG8SWYn0byYA==}
+
   ms@2.1.3:
     resolution: {integrity: sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==}
 
@@ -647,6 +653,9 @@ packages:
 
   potpack@2.1.0:
     resolution: {integrity: sha512-pcaShQc1Shq0y+E7GqJqvZj8DTthWV1KeHGdi0Z6IAin2Oi3JnLCOfwnCo84qc+HAp52wT9nK9H7FAJp5a44GQ==}
+
+  proj4@2.20.8:
+    resolution: {integrity: sha512-1C8sfT4xY4PAPwk0MroFBTGF4R4bzDXdmPQTGYVLsoNssrZ9odzObxS2dTeGBty8jW8KO7h16C1Hs2JP+ctfFw==}
 
   protocol-buffers-schema@3.6.1:
     resolution: {integrity: sha512-VG2K63Igkiv9p76tk1lilczEK1cT+kCjKtkdhw1dQZV3k3IXJbd3o6Ho8b9zJZaHSnT2hKe4I+ObmX9w6m5SmQ==}
@@ -742,6 +751,9 @@ packages:
         optional: true
       terser:
         optional: true
+
+  wkt-parser@1.5.5:
+    resolution: {integrity: sha512-/zMYi94/7D7fxcOSlVmWn6vnOMj3Gq5d1xvVjaYOS9n6h0qOJ4I7YYVxBWYcH1vq9+suhqzXkn05Yx47zQNUIA==}
 
   yallist@3.1.1:
     resolution: {integrity: sha512-a4UGQaWPH59mOXUYnAG2ewncQS4i4F43Tv3JoAM+s2VDAmS9NsK8GpDMLrCHPksFT7h3K6TOoUNn2pb7RoXx4g==}
@@ -1241,6 +1253,8 @@ snapshots:
 
   meshoptimizer@1.0.1: {}
 
+  mgrs@1.0.0: {}
+
   ms@2.1.3: {}
 
   murmurhash-js@1.0.0: {}
@@ -1262,6 +1276,11 @@ snapshots:
       source-map-js: 1.2.1
 
   potpack@2.1.0: {}
+
+  proj4@2.20.8:
+    dependencies:
+      mgrs: 1.0.0
+      wkt-parser: 1.5.5
 
   protocol-buffers-schema@3.6.1: {}
 
@@ -1349,5 +1368,7 @@ snapshots:
       rollup: 4.60.1
     optionalDependencies:
       fsevents: 2.3.3
+
+  wkt-parser@1.5.5: {}
 
   yallist@3.1.1: {}

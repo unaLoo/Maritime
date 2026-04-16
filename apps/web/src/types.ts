@@ -12,7 +12,7 @@ export type SceneConfig = {
 
 export type SceneLayer = {
   id: string;
-  type: "enc" | "terrain" | "hydro_scalar" | "hydro_vector" | "water" | "enhance_3d";
+  type: "enc" | "terrain" | "hydro_scalar" | "hydro_vector" | "water" | "hydrodynamic" | "enhance_3d";
   enabled: boolean;
   config: Record<string, unknown>;
 };
@@ -86,6 +86,15 @@ export type TerrainJobRecord = {
   tiles_dir: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type DynamicInputFileRecord = {
+  id: number;
+  folder_name: string;
+  original_name: string;
+  relative_dir: string;
+  stored_path: string;
+  created_at: string;
 };
 
 export type SceneListItem = {

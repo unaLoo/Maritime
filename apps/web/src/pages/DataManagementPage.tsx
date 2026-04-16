@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { InputHTMLAttributes } from "react";
 import {
   fetchAssets,
+  fetchDynamicInputFiles,
   fetchEncChartFiles,
   fetchEncJobs,
   fetchHydroInputFiles,
@@ -10,6 +12,7 @@ import {
   triggerEncBuild,
   triggerHydroBuild,
   triggerTerrainBuild,
+  uploadDynamicInputFolder,
   uploadVisualizationAssets,
   uploadEncChartFiles,
   uploadHydroInputFile,
@@ -17,6 +20,7 @@ import {
 } from "../api/client";
 import type {
   AssetRecord,
+  DynamicInputFileRecord,
   EncBuildJobRecord,
   EncChartFileRecord,
   HydroInputFileRecord,
@@ -25,7 +29,12 @@ import type {
   TerrainJobRecord
 } from "../types";
 
-type DataTab = "enc" | "hydro" | "terrain" | "visual";
+type DataTab = "enc" | "hydro" | "terrain" | "dynamic" | "visual";
+
+const folderUploadInputAttrs = {
+  webkitdirectory: "true",
+  directory: "true"
+} as unknown as InputHTMLAttributes<HTMLInputElement>;
 
 export function DataManagementPage() {
   const [assets, setAssets] = useState<AssetRecord[]>([]);
@@ -34,6 +43,7 @@ export function DataManagementPage() {
   const [hydroFiles, setHydroFiles] = useState<HydroInputFileRecord[]>([]);
   const [hydroJobs, setHydroJobs] = useState<HydroJobRecord[]>([]);
   const [terrainFiles, setTerrainFiles] = useState<TerrainInputFileRecord[]>([]);
+  const [dynamicFiles, setDynamicFiles] = useState<DynamicInputFileRecord[]>([]);
   const [terrainJobs, setTerrainJobs] = useState<TerrainJobRecord[]>([]);
   const [selectedChartIds, setSelectedChartIds] = useState<number[]>([]);
   const [selectedHydroFileIds, setSelectedHydroFileIds] = useState<number[]>([]);
@@ -59,9 +69,11 @@ export function DataManagementPage() {
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [pendingHydroFile, setPendingHydroFile] = useState<File | null>(null);
   const [pendingTerrainFile, setPendingTerrainFile] = useState<File | null>(null);
+  const [pendingDynamicFiles, setPendingDynamicFiles] = useState<File[]>([]);
   const [pendingVisualFiles, setPendingVisualFiles] = useState<File[]>([]);
   const [visualAssetType, setVisualAssetType] = useState<"geojson" | "model" | "texture">("geojson");
   const [activeTab, setActiveTab] = useState<DataTab>("enc");
+  const dynamicFolderInputRef = useRef<HTMLInputElement | null>(null);
 
   const encAssets = assets.filter((row) => row.asset_kind === "enc_mbtiles");
   const hydroAssets = assets.filter(
@@ -77,6 +89,11 @@ export function DataManagementPage() {
   const visualGeojsonAssets = visualAssets.filter((row) => row.asset_kind === "geojson");
   const visualModelAssets = visualAssets.filter((row) => row.asset_kind === "model_gltf");
   const visualTextureAssets = visualAssets.filter((row) => row.asset_kind === "texture_png");
+  const dynamicFolderName =
+    pendingDynamicFiles[0] &&
+    (pendingDynamicFiles[0] as File & { webkitRelativePath?: string }).webkitRelativePath
+      ? ((pendingDynamicFiles[0] as File & { webkitRelativePath?: string }).webkitRelativePath ?? "").split("/")[0]
+      : "";
 
   useEffect(() => {
     void reloadAll();
@@ -86,14 +103,15 @@ export function DataManagementPage() {
     setLoading(true);
     setError("");
     try {
-      const [assetRows, chartRows, jobRows, hydroFileRows, hydroJobRows, terrainFileRows, terrainJobRows] = await Promise.all([
+      const [assetRows, chartRows, jobRows, hydroFileRows, hydroJobRows, terrainFileRows, terrainJobRows, dynamicFileRows] = await Promise.all([
         fetchAssets(),
         fetchEncChartFiles(),
         fetchEncJobs(),
         fetchHydroInputFiles(),
         fetchHydroJobs(),
         fetchTerrainInputFiles(),
-        fetchTerrainJobs()
+        fetchTerrainJobs(),
+        fetchDynamicInputFiles()
       ]);
       setAssets(assetRows);
       setCharts(chartRows);
@@ -102,6 +120,7 @@ export function DataManagementPage() {
       setHydroJobs(hydroJobRows);
       setTerrainFiles(terrainFileRows);
       setTerrainJobs(terrainJobRows);
+      setDynamicFiles(dynamicFileRows);
     } catch (err) {
       setError(String(err));
     } finally {
@@ -323,6 +342,22 @@ export function DataManagementPage() {
     }
   }
 
+  async function onUploadDynamicInputFolder() {
+    if (pendingDynamicFiles.length === 0) {
+      setError("请先选择 Dynamic 输入文件夹。");
+      return;
+    }
+    setError("");
+    try {
+      await uploadDynamicInputFolder(pendingDynamicFiles, dynamicFolderName || "dynamic");
+      setPendingDynamicFiles([]);
+      if (dynamicFolderInputRef.current) dynamicFolderInputRef.current.value = "";
+      await reloadAll();
+    } catch (err) {
+      setError(String(err));
+    }
+  }
+
   return (
     <div className="page">
       <div className="panel">
@@ -336,6 +371,9 @@ export function DataManagementPage() {
             </button>
             <button className={activeTab === "terrain" ? "active" : ""} onClick={() => setActiveTab("terrain")}>
               地形
+            </button>
+            <button className={activeTab === "dynamic" ? "active" : ""} onClick={() => setActiveTab("dynamic")}>
+              水动力场
             </button>
             <button className={activeTab === "visual" ? "active" : ""} onClick={() => setActiveTab("visual")}>
               其他可视化资源
@@ -854,6 +892,68 @@ export function DataManagementPage() {
                       <td>{row.created_at}</td>
                     </tr>
                   ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      ) : null}
+
+      {activeTab === "dynamic" ? (
+        <>
+          <div className="panel">
+            <div className="panel-title">Dynamic输入上传（文件夹）</div>
+            <div className="inline-form">
+              <input
+                ref={dynamicFolderInputRef}
+                type="file"
+                {...folderUploadInputAttrs}
+                multiple
+                style={{ display: "none" }}
+                onChange={(e) => setPendingDynamicFiles(Array.from(e.target.files ?? []))}
+              />
+              <input
+                type="text"
+                readOnly
+                value={dynamicFolderName}
+                placeholder="未选择文件夹"
+              />
+              <button type="button" onClick={() => dynamicFolderInputRef.current?.click()}>
+                选择文件夹
+              </button>
+              <button onClick={() => void onUploadDynamicInputFolder()}>上传Dynamic输入文件夹</button>
+            </div>
+            <div className="table-wrap">
+              <table>
+                <colgroup>
+                  <col style={{ width: "8%" }} />
+                  <col style={{ width: "14%" }} />
+                  <col style={{ width: "14%" }} />
+                  <col style={{ width: "44%" }} />
+                  <col style={{ width: "20%" }} />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>文件名</th>
+                    <th>目录</th>
+                    <th>路径</th>
+                    <th>上传时间</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dynamicFiles.map((row) => {
+                    const directory = row.relative_dir || row.folder_name;
+                    return (
+                    <tr key={row.id}>
+                      <td>{row.id}</td>
+                      <td>{row.original_name}</td>
+                      <td title={directory}>{directory}</td>
+                      <td title={row.stored_path}>{row.stored_path}</td>
+                      <td>{row.created_at}</td>
+                    </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

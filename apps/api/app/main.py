@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import FastAPI, File, HTTPException, Request, Response, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, Response, UploadFile
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -518,6 +518,88 @@ def list_terrain_files() -> list[dict]:
     ]
 
 
+@app.post("/api/data/dynamic/files/upload")
+async def upload_dynamic_folder_files(
+    files: list[UploadFile] = File(...),
+    relative_paths: list[str] = Form(...),
+    folder_name: str = Form("dynamic"),
+) -> dict:
+    if not files:
+        raise HTTPException(status_code=400, detail="请至少选择一个 dynamic 文件")
+    if len(files) != len(relative_paths):
+        raise HTTPException(status_code=400, detail="relative_paths 与 files 数量不一致")
+
+    safe_folder_name = Path(folder_name.strip() or "dynamic").name
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
+    root_dir = RAW_ROOT / "dynamic" / f"{timestamp}_{safe_folder_name}"
+    root_dir.mkdir(parents=True, exist_ok=True)
+
+    created: list[dict] = []
+    with get_conn() as conn:
+        for item, relative_path in zip(files, relative_paths):
+            original_name = item.filename or ""
+            normalized = relative_path.replace("\\", "/").lstrip("/")
+            if not normalized:
+                normalized = Path(original_name).name
+            rel_path = Path(normalized)
+            if rel_path.is_absolute() or ".." in rel_path.parts:
+                raise HTTPException(status_code=400, detail=f"非法相对路径: {relative_path}")
+
+            # 浏览器目录上传通常会把顶层目录名包含在 webkitRelativePath 中，
+            # 这里去掉与 folder_name 相同的首层目录，避免出现 .../<folder>/<folder>/... 的双层结构。
+            rel_parts = list(rel_path.parts)
+            if rel_parts and rel_parts[0] == safe_folder_name and len(rel_parts) > 1:
+                rel_path = Path(*rel_parts[1:])
+
+            target = root_dir / rel_path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(await item.read())
+
+            relative_dir = rel_path.parent.as_posix() if rel_path.parent != Path(".") else ""
+            cursor = conn.execute(
+                """
+                INSERT INTO dynamic_input_files (folder_name, original_name, relative_dir, stored_path)
+                VALUES (?, ?, ?, ?)
+                """,
+                (safe_folder_name, rel_path.name, relative_dir, str(target)),
+            )
+            created.append(
+                {
+                    "id": cursor.lastrowid,
+                    "folder_name": safe_folder_name,
+                    "original_name": rel_path.name,
+                    "relative_dir": relative_dir,
+                    "stored_path": str(target),
+                }
+            )
+        conn.commit()
+
+    return {"status": "ok", "root_path": str(root_dir), "items": created}
+
+
+@app.get("/api/data/dynamic/files")
+def list_dynamic_files() -> list[dict]:
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, folder_name, original_name, relative_dir, stored_path, created_at
+            FROM dynamic_input_files
+            ORDER BY created_at DESC, id DESC
+            """
+        ).fetchall()
+    return [
+        {
+            "id": row["id"],
+            "folder_name": row["folder_name"],
+            "original_name": row["original_name"],
+            "relative_dir": row["relative_dir"],
+            "stored_path": row["stored_path"],
+            "created_at": row["created_at"],
+        }
+        for row in rows
+    ]
+
+
 class TerrainBuildPayload(BaseModel):
     dataset_id: str
     input_format: str
@@ -960,6 +1042,7 @@ def _build_asset_access_url(dataset_id: str, asset_kind: str, disk_path: str) ->
 
 
 app.mount("/static", StaticFiles(directory=DERIVED_ROOT), name="static")
+app.mount("/raw", StaticFiles(directory=RAW_ROOT), name="raw")
 
 
 def _run_enc_build_job(job_id: str, dataset_id: str, input_paths: list[str]) -> None:

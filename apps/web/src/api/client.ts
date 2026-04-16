@@ -1,5 +1,6 @@
 import type {
   AssetRecord,
+  DynamicInputFileRecord,
   EncBuildJobRecord,
   EncChartFileRecord,
   HydroInputFileRecord,
@@ -247,5 +248,31 @@ export async function fetchTerrainJobs(): Promise<TerrainJobRecord[]> {
     throw new Error(`加载 Terrain 任务失败: ${response.status}`);
   }
   return (await response.json()) as TerrainJobRecord[];
+}
+
+export async function uploadDynamicInputFolder(files: File[], folderName: string): Promise<void> {
+  if (files.length === 0) return;
+  const form = new FormData();
+  for (const file of files) {
+    const relativePath = (file as File & { webkitRelativePath?: string }).webkitRelativePath ?? file.name;
+    form.append("files", file);
+    form.append("relative_paths", relativePath);
+  }
+  form.append("folder_name", folderName);
+  const response = await fetch("/api/data/dynamic/files/upload", {
+    method: "POST",
+    body: form
+  });
+  if (!response.ok) {
+    throw new Error(`上传 Dynamic 输入文件夹失败: ${response.status}`);
+  }
+}
+
+export async function fetchDynamicInputFiles(): Promise<DynamicInputFileRecord[]> {
+  const response = await fetch("/api/data/dynamic/files");
+  if (!response.ok) {
+    throw new Error(`加载 Dynamic 输入文件失败: ${response.status}`);
+  }
+  return (await response.json()) as DynamicInputFileRecord[];
 }
 

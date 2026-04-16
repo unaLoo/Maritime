@@ -11,7 +11,7 @@ import {
   addDynamicDirection,
   addGLTF
 } from "../../vector-enc";
-import { createWaterSceneController } from "../../WaterLayer";
+import { createHydrodynamicLayerController } from "../../hydrodynamic-layer/index";
 
 export async function mountSceneLayers(map: mapboxgl.Map, layers: SceneLayer[]): Promise<() => void> {
   let runtime: InstanceType<typeof Runtime> | null = null;
@@ -49,6 +49,7 @@ async function mountLayer(
       mountHydroVectorLayer(getRuntime(), layer);
       return;
     case "water":
+    case "hydrodynamic":
       await mountWaterLayer(map, layer);
       return;
     case "enhance_3d":
@@ -107,7 +108,7 @@ function mountHydroVectorLayer(runtime: InstanceType<typeof Runtime>, layer: Sce
 }
 
 async function mountWaterLayer(map: mapboxgl.Map, layer: SceneLayer): Promise<void> {
-  const controller = createWaterSceneController(layer.config);
+  const controller = createHydrodynamicLayerController(layer.config);
   const waterLayer = await controller.initialize(map);
   if (!map.getLayer(waterLayer.id)) {
     map.addLayer(waterLayer as unknown as mapboxgl.AnyLayer);

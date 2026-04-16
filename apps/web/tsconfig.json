@@ -15,6 +15,6 @@
     "vector-enc/index.ts",
     "vector-enc/enc/**/*",
     "vector-enc/hydroField/**/*",
-    "WaterLayer/**/*"
+    "hydrodynamic-layer/**/*"
   ]
 }

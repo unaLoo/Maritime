@@ -1,12 +1,12 @@
 ﻿import { useMemo, useEffect, useState } from "react";
-import { fetchAssets, fetchScene, fetchSceneList, saveScene } from "../api/client";
+import { fetchAssets, fetchDynamicInputFiles, fetchScene, fetchSceneList, saveScene } from "../api/client";
 import { SceneMapPreview } from "../components/SceneMapPreview";
-import type { AssetRecord, SceneConfig, SceneLayer, SceneListItem } from "../types";
+import type { AssetRecord, DynamicInputFileRecord, SceneConfig, SceneLayer, SceneListItem } from "../types";
 
 const DEFAULT_SCENE_ID = "default";
 
 type EditorMode = "form" | "json";
-type AddLayerType = "enc" | "hydro_scalar" | "hydro_vector" | "terrain" | "gltf_model" | "breath_wall" | "dynamic_arrow";
+type AddLayerType = "enc" | "hydro_scalar" | "hydro_vector" | "terrain" | "gltf_model" | "breath_wall" | "dynamic_arrow" | "hydrodynamic";
 
 type BuildLayerParams = {
   layerType: AddLayerType;
@@ -14,12 +14,14 @@ type BuildLayerParams = {
   encIconBaseUrl: string;
   selectedHydroAssetId: string;
   selectedTerrainAssetId: string;
+  selectedHydrodynamicAssetKey: string;
   selectedGeojsonAssetId: string;
   enhanceModelUrl: string;
   enhanceTextureUrl: string;
   encAssets: AssetRecord[];
   hydroAssets: AssetRecord[];
   terrainAssets: AssetRecord[];
+  dynamicAssets: DynamicInputFileRecord[];
   geojsonAssets: AssetRecord[];
 };
 
@@ -38,6 +40,7 @@ export function SceneEditorPage() {
   const [hydroAssets, setHydroAssets] = useState<AssetRecord[]>([]);
   const [terrainAssets, setTerrainAssets] = useState<AssetRecord[]>([]);
   const [geojsonAssets, setGeojsonAssets] = useState<AssetRecord[]>([]);
+  const [dynamicAssets, setDynamicAssets] = useState<DynamicInputFileRecord[]>([]);
 
   const [newLayerType, setNewLayerType] = useState<AddLayerType>("enc");
   const [isAddLayerModalOpen, setIsAddLayerModalOpen] = useState(false);
@@ -46,6 +49,7 @@ export function SceneEditorPage() {
   const [selectedHydroAssetId, setSelectedHydroAssetId] = useState("");
   const [selectedTerrainAssetId, setSelectedTerrainAssetId] = useState("");
   const [selectedGeojsonAssetId, setSelectedGeojsonAssetId] = useState("");
+  const [selectedDynamicAssetId, setSelectedDynamicAssetId] = useState("");
   const [enhanceModelUrl, setEnhanceModelUrl] = useState("/static/models/demo.glb");
   const [enhanceTextureUrl, setEnhanceTextureUrl] = useState("/static/arr.png");
 
@@ -74,12 +78,31 @@ export function SceneEditorPage() {
       hydro_scalar: "水文环境场（标量）",
       hydro_vector: "水文环境场（矢量）",
       terrain: "地形",
+      hydrodynamic: "水动力场",
       gltf_model: "模型",
       breath_wall: "呼吸墙",
       dynamic_arrow: "动态箭头"
     }),
     []
   );
+  const dynamicFolderOptions = useMemo(() => {
+    const grouped = new Map<string, { key: string; folderName: string; createdAt: string; fileCount: number }>();
+    for (const row of dynamicAssets) {
+      const key = getDynamicUploadKey(row);
+      const current = grouped.get(key);
+      if (current) {
+        current.fileCount += 1;
+      } else {
+        grouped.set(key, {
+          key,
+          folderName: row.folder_name,
+          createdAt: row.created_at,
+          fileCount: 1
+        });
+      }
+    }
+    return Array.from(grouped.values()).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  }, [dynamicAssets]);
 
   async function initializePage() {
     await Promise.all([
@@ -88,7 +111,8 @@ export function SceneEditorPage() {
       loadEncAssets(),
       loadHydroAssets(),
       loadTerrainAssets(),
-      loadGeojsonAssets()
+      loadGeojsonAssets(),
+      loadDynamicAssets()
     ]);
   }
 
@@ -193,12 +217,14 @@ export function SceneEditorPage() {
         encIconBaseUrl,
         selectedHydroAssetId,
         selectedTerrainAssetId,
+        selectedHydrodynamicAssetKey: selectedDynamicAssetId,
         selectedGeojsonAssetId,
         enhanceModelUrl,
         enhanceTextureUrl,
         encAssets,
         hydroAssets,
         terrainAssets,
+        dynamicAssets,
         geojsonAssets
       });
       setFormSceneWith((scene) => ({ ...scene, layers: [...scene.layers, nextLayer] }));
@@ -264,6 +290,16 @@ export function SceneEditorPage() {
       const filtered = assets.filter((a) => a.asset_kind === "geojson" && !!a.access_url);
       setGeojsonAssets(filtered);
       if (!selectedGeojsonAssetId && filtered.length > 0) setSelectedGeojsonAssetId(String(filtered[0].id));
+    } catch (err) {
+      setError(String(err));
+    }
+  }
+
+  async function loadDynamicAssets() {
+    try {
+      const rows = await fetchDynamicInputFiles();
+      setDynamicAssets(rows);
+      if (!selectedDynamicAssetId && rows.length > 0) setSelectedDynamicAssetId(getDynamicUploadKey(rows[0]));
     } catch (err) {
       setError(String(err));
     }
@@ -349,6 +385,7 @@ export function SceneEditorPage() {
               {newLayerType === "enc" ? (<><label>已发布 ENC 资产<select value={selectedEncAssetId} onChange={(e) => setSelectedEncAssetId(e.target.value)}><option value="">请选择</option>{encAssets.map((asset) => (<option key={asset.id} value={String(asset.id)}>{asset.dataset_id} ({asset.asset_kind})</option>))}</select></label><label>Icon Base URL<input value={encIconBaseUrl} onChange={(e) => setEncIconBaseUrl(e.target.value)} /></label></>) : null}
               {newLayerType === "hydro_scalar" || newLayerType === "hydro_vector" ? (<><label>已发布 Hydro 资产<select value={selectedHydroAssetId} onChange={(e) => setSelectedHydroAssetId(e.target.value)}><option value="">请选择</option>{hydroAssets.filter((a) => (newLayerType === "hydro_scalar" ? a.asset_kind === "hydro_bin_scalar" : a.asset_kind === "hydro_bin_vector")).map((asset) => (<option key={asset.id} value={String(asset.id)}>{asset.dataset_id} ({asset.asset_kind})</option>))}</select></label></>) : null}
               {newLayerType === "terrain" ? (<><label>已发布 Terrain 资产<select value={selectedTerrainAssetId} onChange={(e) => setSelectedTerrainAssetId(e.target.value)}><option value="">请选择</option>{terrainAssets.map((asset) => (<option key={asset.id} value={String(asset.id)}>{asset.dataset_id} ({asset.asset_kind})</option>))}</select></label></>) : null}
+              {newLayerType === "hydrodynamic" ? (<><label>已发布 Dynamic 资产<select value={selectedDynamicAssetId} onChange={(e) => setSelectedDynamicAssetId(e.target.value)}><option value="">请选择</option>{dynamicFolderOptions.map((asset) => (<option key={asset.key} value={asset.key}>{asset.folderName}（{asset.fileCount}个文件）</option>))}</select></label></>) : null}
               {newLayerType === "gltf_model" || newLayerType === "breath_wall" || newLayerType === "dynamic_arrow" ? (<><label>GeoJSON 资产<select value={selectedGeojsonAssetId} onChange={(e) => setSelectedGeojsonAssetId(e.target.value)}><option value="">请选择</option>{geojsonAssets.map((asset) => (<option key={asset.id} value={String(asset.id)}>{asset.dataset_id}</option>))}</select></label>{newLayerType === "gltf_model" ? (<label>模型 URL<input value={enhanceModelUrl} onChange={(e) => setEnhanceModelUrl(e.target.value)} /></label>) : null}{newLayerType === "dynamic_arrow" ? (<label>箭头纹理 URL<input value={enhanceTextureUrl} onChange={(e) => setEnhanceTextureUrl(e.target.value)} /></label>) : null}</>) : null}
             </div>
             <div className="modal-actions">
@@ -367,7 +404,7 @@ export function SceneEditorPage() {
 }
 
 function buildLayerByType(params: BuildLayerParams): SceneLayer {
-  const { layerType, selectedEncAssetId, encIconBaseUrl, selectedHydroAssetId, selectedTerrainAssetId, selectedGeojsonAssetId, enhanceModelUrl, enhanceTextureUrl, encAssets, hydroAssets, terrainAssets, geojsonAssets } = params;
+  const { layerType, selectedEncAssetId, encIconBaseUrl, selectedHydroAssetId, selectedTerrainAssetId, selectedHydrodynamicAssetKey, selectedGeojsonAssetId, enhanceModelUrl, enhanceTextureUrl, encAssets, hydroAssets, terrainAssets, dynamicAssets, geojsonAssets } = params;
   const now = Date.now();
 
   if (layerType === "enc") {
@@ -394,6 +431,36 @@ function buildLayerByType(params: BuildLayerParams): SceneLayer {
     const asset = terrainAssets.find((a) => String(a.id) === selectedTerrainAssetId);
     if (!asset?.access_url) throw new Error("选中的 Terrain 资产缺少可访问 URL。");
     return { id: `terrain-${now}`, type: "terrain", enabled: true, config: { terrainTileURL: asset.access_url, exaggeration: 5, withContour: true, withLighting: true, interval: 5, elevationRange: [-300, 2], shallowColor: [34, 76, 80], deepColor: [255, 255, 255] } };
+  }
+
+  if (layerType === "hydrodynamic") {
+    if (!selectedHydrodynamicAssetKey) throw new Error("请先选择一个 Dynamic 资源文件夹。");
+    const matched = dynamicAssets.find((row) => getDynamicUploadKey(row) === selectedHydrodynamicAssetKey);
+    if (!matched) throw new Error("所选 Dynamic 资源文件夹无效。");
+    return {
+      id: `hydrodynamic-${now}`,
+      type: "hydrodynamic",
+      enabled: true,
+      config: {
+        dataResource: {
+          path: `/raw/dynamic/${selectedHydrodynamicAssetKey}/`,
+          config: "config.json"
+        },
+        style: {
+          lightColor: "#FFF4D6",
+          terrainColor: "#FFFFFF",
+          waterShallowColor: "#06D5FF",
+          waterDeepColor: "#0D1AA8",
+          waterOpacity: 0.8,
+          waterDepthDensity: 0.3
+        },
+        animation: {
+          swapDuration: 2000,
+          swapTimeStart: 0.75,
+          swapTimeEnd: 1.0
+        }
+      }
+    };
   }
 
   if (!selectedGeojsonAssetId) throw new Error("请先选择一个 GeoJSON 资产。");
@@ -435,4 +502,16 @@ function parseDraftScene(text: string): SceneConfig {
 
 function createEmptyScene(sceneId: string): SceneConfig {
   return { version: 1, name: sceneId, view: { center: [114.02814, 22.4729], zoom: 10, bearing: 0, pitch: 45 }, layers: [] };
+}
+
+function getDynamicUploadKey(row: DynamicInputFileRecord): string {
+  const normalizedPath = row.stored_path.replace(/\\/g, "/");
+  const marker = "/dynamic/";
+  const markerIndex = normalizedPath.lastIndexOf(marker);
+  if (markerIndex >= 0) {
+    const tail = normalizedPath.slice(markerIndex + marker.length);
+    const uploadRoot = tail.split("/")[0];
+    if (uploadRoot) return uploadRoot;
+  }
+  return row.folder_name;
 }
