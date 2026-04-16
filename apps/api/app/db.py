@@ -107,28 +107,6 @@ def init_db() -> None:
                 "name": "default-scene",
                 "view": {"center": [114.02814, 22.4729], "zoom": 10, "bearing": 0, "pitch": 45},
                 "layers": [
-                    {
-                        "id": "enc-1",
-                        "type": "enc",
-                        "enabled": True,
-                        "config": {
-                            "sourceBaseUrl": "/api/tiles/enc/demo/mbtiles",
-                            "iconBaseUrl": "/static/enc-icons",
-                            "theme": "DAY_BRIGHT",
-                            "showLand": True,
-                            "showSoundings": True,
-                        },
-                    },
-                    {
-                        "id": "water-1",
-                        "type": "water",
-                        "enabled": False,
-                        "config": {
-                            "dataResource": {"path": "/static/water/assets/Resources/", "config": "config2.json"},
-                            "style": {"waterOpacity": 0.8},
-                            "animation": {"swapDuration": 2000},
-                        },
-                    },
                 ],
             }
             conn.execute(
